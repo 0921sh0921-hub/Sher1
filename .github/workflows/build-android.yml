@@ -12,8 +12,9 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Daftar Sher APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout source
@@ -30,16 +31,45 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses || true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
+      - name: Check project files
+        run: |
+          echo "Checking Android project..."
+          test -f android-app/settings.gradle
+          test -f android-app/build.gradle
+          test -f android-app/app/build.gradle
+          test -f android-app/app/src/main/AndroidManifest.xml
+          echo "Project files found."
+
       - name: Build debug APK
         working-directory: android-app
-        run: gradle --no-daemon assembleDebug --stacktrace
+        run: |
+          gradle --version
+          gradle --no-daemon \
+            --stacktrace \
+            --info \
+            assembleDebug
+
+      - name: Verify APK
+        run: |
+          APK="android-app/app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK file was not generated."
+            exit 1
+          fi
+          ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
