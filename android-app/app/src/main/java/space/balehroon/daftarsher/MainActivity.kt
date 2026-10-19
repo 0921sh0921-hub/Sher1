@@ -26,6 +26,12 @@ class MainActivity : Activity() {
 
     private val homeUrl = "https://balehroon.space/sher/"
 
+    private fun showView(view: View, visible: Boolean) {
+        view.setVisibility(
+            if (visible) View.VISIBLE else View.GONE
+        )
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,102 +42,96 @@ class MainActivity : Activity() {
         val root = FrameLayout(this)
         root.setBackgroundColor(Color.rgb(245, 240, 230))
 
-        // نوار بارگذاری
-        progress = ProgressBar(this).apply {
-            isIndeterminate = true
-            visibility = View.VISIBLE
-        }
+        progress = ProgressBar(this)
+        progress.isIndeterminate = true
+        showView(progress, true)
 
-        // پیام قطع اتصال
-        offline = TextView(this).apply {
-            text = "اتصال به اینترنت برقرار نیست.\n\nبرای تلاش دوباره لمس کنید."
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(36, 35, 30))
-            setPadding(32, 32, 32, 32)
-            visibility = View.GONE
+        offline = TextView(this)
+        offline.text = "اتصال به اینترنت برقرار نیست.\n\nبرای تلاش دوباره لمس کنید."
+        offline.textSize = 18f
+        offline.gravity = Gravity.CENTER
+        offline.setTextColor(Color.rgb(36, 35, 30))
+        offline.setPadding(32, 32, 32, 32)
+        showView(offline, false)
 
-            setOnClickListener {
-                visibility = View.GONE
-                progress.visibility = View.VISIBLE
-                webView.reload()
+        webView = WebView(this)
+
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.allowFileAccess = false
+        webView.settings.allowContentAccess = false
+        webView.settings.javaScriptCanOpenWindowsAutomatically = false
+        webView.settings.setSupportMultipleWindows(false)
+
+        webView.webChromeClient = WebChromeClient()
+
+        webView.webViewClient = object : WebViewClient() {
+
+            override fun onPageStarted(
+                view: WebView?,
+                url: String?,
+                favicon: Bitmap?
+            ) {
+                showView(progress, true)
+                showView(offline, false)
             }
-        }
 
-        // مرورگر داخلی
-        webView = WebView(this).apply {
+            override fun onPageFinished(
+                view: WebView?,
+                url: String?
+            ) {
+                showView(progress, false)
+            }
 
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.allowFileAccess = false
-            settings.allowContentAccess = false
-            settings.javaScriptCanOpenWindowsAutomatically = false
-            settings.setSupportMultipleWindows(false)
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                if (request?.isForMainFrame == true) {
+                    showView(progress, false)
+                    showView(offline, true)
+                }
+            }
 
-            webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(
+                view: WebView,
+                request: WebResourceRequest
+            ): Boolean {
 
-                override fun onPageStarted(
-                    view: WebView?,
-                    url: String?,
-                    favicon: Bitmap?
-                ) {
-                    progress.visibility = View.VISIBLE
-                    offline.visibility = View.GONE
+                val uri: Uri = request.url
+
+                val internal =
+                    uri.scheme == "https" &&
+                    (
+                        uri.host == "balehroon.space" ||
+                        uri.host == "www.balehroon.space"
+                    )
+
+                if (internal) {
+                    return false
                 }
 
-                override fun onPageFinished(
-                    view: WebView?,
-                    url: String?
-                ) {
-                    progress.visibility = View.GONE
-                }
-
-                override fun onReceivedError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    error: WebResourceError?
-                ) {
-                    if (request?.isForMainFrame == true) {
-                        progress.visibility = View.GONE
-                        offline.visibility = View.VISIBLE
-                    }
-                }
-
-                override fun shouldOverrideUrlLoading(
-                    view: WebView,
-                    request: WebResourceRequest
-                ): Boolean {
-
-                    val uri: Uri = request.url
-
-                    val isInternalSite =
-                        uri.scheme == "https" &&
-                        (
-                            uri.host == "balehroon.space" ||
-                            uri.host == "www.balehroon.space"
+                if (uri.scheme == "https") {
+                    try {
+                        startActivity(
+                            Intent(Intent.ACTION_VIEW, uri)
                         )
-
-                    return if (isInternalSite) {
-                        false
-                    } else {
-                        if (uri.scheme == "https") {
-                            try {
-                                startActivity(
-                                    Intent(Intent.ACTION_VIEW, uri)
-                                )
-                            } catch (_: Exception) {
-                                // برنامه‌ای برای باز کردن لینک پیدا نشد
-                            }
-                        }
-                        true
+                    } catch (_: Exception) {
+                        // لینک قابل باز شدن نیست
                     }
                 }
-            }
 
-            webChromeClient = WebChromeClient()
+                return true
+            }
         }
 
-        // اضافه کردن اجزای صفحه
+        offline.setOnClickListener {
+            showView(offline, false)
+            showView(progress, true)
+            webView.reload()
+        }
+
         root.addView(
             webView,
             FrameLayout.LayoutParams(
@@ -159,7 +159,6 @@ class MainActivity : Activity() {
 
         setContentView(root)
 
-        // باز کردن سایت
         if (savedInstanceState == null) {
             webView.loadUrl(homeUrl)
         } else {
