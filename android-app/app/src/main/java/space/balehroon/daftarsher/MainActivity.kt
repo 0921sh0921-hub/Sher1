@@ -24,7 +24,7 @@ class MainActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var offline: TextView
 
-    private val homeUrl = "https://balehroon.space/sher/"
+    private val homeUrl = "https://balehroonhelper.space/sher/"
 
     private fun showView(view: View, visible: Boolean) {
         view.setVisibility(
@@ -104,8 +104,8 @@ class MainActivity : Activity() {
                 val internal =
                     uri.scheme == "https" &&
                     (
-                        uri.host == "balehroon.space" ||
-                        uri.host == "www.balehroon.space"
+                        uri.host == "balehroonhelper.space" ||
+                        uri.host == "www.balehroonhelper.space"
                     )
 
                 if (internal) {
