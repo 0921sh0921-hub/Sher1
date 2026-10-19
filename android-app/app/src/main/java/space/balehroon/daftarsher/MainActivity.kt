@@ -2,10 +2,13 @@ package space.balehroon.daftarsher
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.view.Gravity
+import android.view.View
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -14,8 +17,6 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.graphics.Color
-import android.content.Intent
 
 class MainActivity : Activity() {
 
@@ -35,26 +36,31 @@ class MainActivity : Activity() {
         val root = FrameLayout(this)
         root.setBackgroundColor(Color.rgb(245, 240, 230))
 
-        progress = ProgressBar(this)
-        progress.isIndeterminate = true
-        progress.visibility = View.VISIBLE
+        // نوار بارگذاری
+        progress = ProgressBar(this).apply {
+            isIndeterminate = true
+            visibility = View.VISIBLE
+        }
 
+        // پیام قطع اتصال
         offline = TextView(this).apply {
             text = "اتصال به اینترنت برقرار نیست.\n\nبرای تلاش دوباره لمس کنید."
             textSize = 18f
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(36, 35, 30))
             setPadding(32, 32, 32, 32)
-            setVisibility(View.GONE)
+            visibility = View.GONE
 
             setOnClickListener {
-                setVisibility(View.GONE)
-                progress.setVisibility(View.VISIBLE)
+                visibility = View.GONE
+                progress.visibility = View.VISIBLE
                 webView.reload()
             }
         }
 
+        // مرورگر داخلی
         webView = WebView(this).apply {
+
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
@@ -69,15 +75,15 @@ class MainActivity : Activity() {
                     url: String?,
                     favicon: Bitmap?
                 ) {
-                    progress.setVisibility(View.VISIBLE)
-                    offline.setVisibility(View.GONE)
+                    progress.visibility = View.VISIBLE
+                    offline.visibility = View.GONE
                 }
 
                 override fun onPageFinished(
                     view: WebView?,
                     url: String?
                 ) {
-                    progress.setVisibility(View.GONE)
+                    progress.visibility = View.GONE
                 }
 
                 override fun onReceivedError(
@@ -86,8 +92,8 @@ class MainActivity : Activity() {
                     error: WebResourceError?
                 ) {
                     if (request?.isForMainFrame == true) {
-                        progress.setVisibility(View.GONE)
-                        offline.setVisibility(View.VISIBLE)
+                        progress.visibility = View.GONE
+                        offline.visibility = View.VISIBLE
                     }
                 }
 
@@ -95,21 +101,27 @@ class MainActivity : Activity() {
                     view: WebView,
                     request: WebResourceRequest
                 ): Boolean {
-                    val uri = request.url
 
-                    return if (
+                    val uri: Uri = request.url
+
+                    val isInternalSite =
                         uri.scheme == "https" &&
                         (
                             uri.host == "balehroon.space" ||
                             uri.host == "www.balehroon.space"
                         )
-                    ) {
+
+                    return if (isInternalSite) {
                         false
                     } else {
                         if (uri.scheme == "https") {
-                            startActivity(
-                                Intent(Intent.ACTION_VIEW, uri)
-                            )
+                            try {
+                                startActivity(
+                                    Intent(Intent.ACTION_VIEW, uri)
+                                )
+                            } catch (_: Exception) {
+                                // برنامه‌ای برای باز کردن لینک پیدا نشد
+                            }
                         }
                         true
                     }
@@ -119,6 +131,7 @@ class MainActivity : Activity() {
             webChromeClient = WebChromeClient()
         }
 
+        // اضافه کردن اجزای صفحه
         root.addView(
             webView,
             FrameLayout.LayoutParams(
@@ -129,7 +142,11 @@ class MainActivity : Activity() {
 
         root.addView(
             progress,
-            FrameLayout.LayoutParams(64, 64, Gravity.CENTER)
+            FrameLayout.LayoutParams(
+                64,
+                64,
+                Gravity.CENTER
+            )
         )
 
         root.addView(
@@ -142,10 +159,15 @@ class MainActivity : Activity() {
 
         setContentView(root)
 
+        // باز کردن سایت
         if (savedInstanceState == null) {
             webView.loadUrl(homeUrl)
         } else {
-            webView.restoreState(savedInstanceState)
+            val restored = webView.restoreState(savedInstanceState)
+
+            if (restored == null) {
+                webView.loadUrl(homeUrl)
+            }
         }
     }
 
@@ -153,10 +175,11 @@ class MainActivity : Activity() {
         if (::webView.isInitialized) {
             webView.saveState(outState)
         }
+
         super.onSaveInstanceState(outState)
     }
 
-    @Deprecated("Deprecated in Android API; retained for broad device compatibility")
+    @Deprecated("Deprecated in Android API")
     override fun onBackPressed() {
         if (::webView.isInitialized && webView.canGoBack()) {
             webView.goBack()
@@ -169,6 +192,7 @@ class MainActivity : Activity() {
         if (::webView.isInitialized) {
             webView.destroy()
         }
+
         super.onDestroy()
     }
 }
