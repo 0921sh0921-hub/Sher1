@@ -44,14 +44,49 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Check project files
+      - name: Inspect project structure
         run: |
-          echo "Checking Android project..."
-          test -f android-app/settings.gradle
-          test -f android-app/build.gradle
-          test -f android-app/app/build.gradle
-          test -f android-app/app/src/main/AndroidManifest.xml
-          echo "Project files found."
+          echo "=================================="
+          echo "PROJECT FILES"
+          echo "=================================="
+
+          if [ -d android-app ]; then
+            find android-app -maxdepth 10 -type f | sort
+          else
+            echo "ERROR: android-app directory is missing!"
+            echo "Repository root contents:"
+            ls -la
+            exit 1
+          fi
+
+      - name: Check required files
+        run: |
+          missing=0
+
+          for file in \
+            android-app/settings.gradle \
+            android-app/build.gradle \
+            android-app/app/build.gradle \
+            android-app/app/src/main/AndroidManifest.xml \
+            android-app/app/src/main/java/space/balehroon/daftarsher/MainActivity.kt \
+            android-app/app/src/main/res/values/strings.xml
+          do
+            if [ -f "$file" ]; then
+              echo "FOUND: $file"
+            else
+              echo "MISSING: $file"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "ERROR: Required files are missing."
+            echo "Check the project structure shown above."
+            exit 1
+          fi
+
+          echo "All required files exist."
 
       - name: Build debug APK
         working-directory: android-app
@@ -63,15 +98,20 @@ jobs:
             assembleDebug
 
       - name: Verify APK
+        if: success()
         run: |
           APK="android-app/app/build/outputs/apk/debug/app-debug.apk"
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: APK file was not generated."
+
+          if [ -f "$APK" ]; then
+            echo "APK successfully created!"
+            ls -lh "$APK"
+          else
+            echo "ERROR: APK was not generated."
             exit 1
           fi
-          ls -lh "$APK"
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: daftar-sher-debug-apk
